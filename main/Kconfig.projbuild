@@ -1,0 +1,6 @@
+config PHOTOFRAME_BLE_PROVISIONING
+    bool
+    default y
+    select ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_1
+    help
+        Enable authenticated Bluetooth LE Wi-Fi provisioning.

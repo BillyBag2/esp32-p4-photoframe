@@ -1,0 +1,26 @@
+# M5Stack Tab5 board defaults
+# Original Tab5 hardware uses pre-v3 ESP32-P4 silicon. ESP-IDF groups
+# revisions 1.0 through 1.99 under REV_MIN_100; rev 1.x and rev 3.x binaries
+# are not hardware-compatible. The connected board reports v1.0 at boot.
+CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+CONFIG_ESP32P4_REV_MIN_100=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_360=y
+
+CONFIG_BSP_I2C_NUM=1
+CONFIG_BSP_DISPLAY_BRIGHTNESS_LEDC_CH=1
+CONFIG_BSP_SD_MOUNT_POINT="/sdcard"
+CONFIG_BSP_SD_FORMAT_ON_MOUNT_FAIL=n
+CONFIG_BSP_LCD_DRAW_BUF_HEIGHT=40
+CONFIG_BSP_LCD_DPI_BUFFER_NUMS=1
+CONFIG_BSP_LCD_USE_DMA2D=y
+# The app rotates the display from BMI270 readings. Avoid-tear mode disables
+# the BSP's software/PPA rotation path, so use partial display buffers.
+CONFIG_BSP_DISPLAY_LVGL_AVOID_TEAR=n
+
+# Use the ESP32-P4 Pixel Processing Accelerator for LVGL rendering and display
+# rotation. A 40-line draw buffer keeps the three required DMA buffers within
+# the Tab5's available contiguous internal memory.
+CONFIG_LV_USE_PPA=y
+CONFIG_LV_USE_PPA_IMG=y
+CONFIG_LV_DRAW_BUF_ALIGN=64
+CONFIG_LVGL_PORT_ENABLE_PPA=y
