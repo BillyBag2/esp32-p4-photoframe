@@ -44,3 +44,5 @@ ESP-Hosted 2.x component. Older Tab5 factory/demo C6 images using ESP-Hosted 1.x
 are not RPC-compatible. Provision with Espressif's ESP BLE Provisioning mobile
 app using the service name printed on the serial console.
 
+## Google photo picker
+

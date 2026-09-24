@@ -65,15 +65,30 @@ esp_err_t provisioning_start()
     config.app_event_handler = NETWORK_PROV_EVENT_HANDLER_NONE;
     ESP_RETURN_ON_ERROR(network_prov_mgr_init(config), TAG, "provisioning manager");
 
+    // Tab5's C6 factory image may contain this placeholder station profile.
+    // The provisioning manager treats every nonempty SSID as user credentials,
+    // which would otherwise prevent its BLE service from advertising.
+    wifi_config_t wifi_config = {};
+    ESP_RETURN_ON_ERROR(esp_wifi_get_config(WIFI_IF_STA, &wifi_config), TAG, "read Wi-Fi config");
+    if (std::strcmp(reinterpret_cast<const char *>(wifi_config.sta.ssid), "M5Stack-Production") == 0) {
+        ESP_LOGI(TAG, "Clearing C6 factory Wi-Fi profile");
+        wifi_config_t empty_config = {};
+        ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &empty_config), TAG, "clear Wi-Fi config");
+    }
+
     bool provisioned = false;
     ESP_RETURN_ON_ERROR(network_prov_mgr_is_wifi_provisioned(&provisioned), TAG, "provisioned state");
     if (provisioned) {
+        ESP_LOGI(TAG, "Wi-Fi is already provisioned; BLE provisioning is not advertising");
         network_prov_mgr_deinit();
         return esp_wifi_start();
     }
 
     uint8_t mac[6] = {};
-    ESP_RETURN_ON_ERROR(esp_read_mac(mac, ESP_MAC_WIFI_STA), TAG, "read MAC");
+    // The Wi-Fi station MAC belongs to the C6 and is not exposed through the
+    // P4 host's esp_read_mac(). The P4 factory eFuse MAC is stable and gives
+    // this host-side provisioning service a unique name.
+    ESP_RETURN_ON_ERROR(esp_read_mac(mac, ESP_MAC_EFUSE_FACTORY), TAG, "read factory MAC");
     char service_name[16];
     std::snprintf(service_name, sizeof(service_name), "PROV_%02X%02X%02X", mac[3], mac[4], mac[5]);
 
