@@ -89,12 +89,12 @@ esp_err_t provisioning_start()
     // P4 host's esp_read_mac(). The P4 factory eFuse MAC is stable and gives
     // this host-side provisioning service a unique name.
     ESP_RETURN_ON_ERROR(esp_read_mac(mac, ESP_MAC_EFUSE_FACTORY), TAG, "read factory MAC");
-    char service_name[16];
-    std::snprintf(service_name, sizeof(service_name), "PROV_%02X%02X%02X", mac[3], mac[4], mac[5]);
+    char service_name[sizeof("RetroScope_") + 6];
+    std::snprintf(service_name, sizeof(service_name), "RetroScope_%02X%02X%02X", mac[3], mac[4], mac[5]);
 
     // Security 1 provides proof-of-possession authenticated encryption. Change
     // this per product/device before shipping rather than using a fleet secret.
-    constexpr char pop[] = "tab5-frame";
+    constexpr char pop[] = "myRetroScope";
     ESP_LOGI(TAG, "Provision with ESP BLE Provisioning: name=%s, PoP=%s", service_name, pop);
     return network_prov_mgr_start_provisioning(NETWORK_PROV_SECURITY_1, pop, service_name, nullptr);
 }

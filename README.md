@@ -12,9 +12,9 @@ accelerometer to rotate the display, and exposes Wi-Fi provisioning over BLE.
 - SD card mounted at `/sdcard`
 - Four-way orientation with a 0.2 g hysteresis region
 - ESP32-C6 Wi-Fi/BLE via ESP-Hosted over the Tab5 SDIO wiring
-- ESP BLE Provisioning Security 1; service name `PROV_xxxxxx`
+- ESP BLE Provisioning Security 1; service name `RetroScope_XXXXXX`
 
-The development proof-of-possession string is `tab5-frame`. Replace it with a
+The development proof-of-possession string is `myRetroScope`. Replace it with a
 per-device secret before production deployment.
 
 ## Build
@@ -42,7 +42,32 @@ If an old `sdkconfig` predates these files, remove it or run
 The on-board C6 must run an ESP-Hosted slave image compatible with the resolved
 ESP-Hosted 2.x component. Older Tab5 factory/demo C6 images using ESP-Hosted 1.x
 are not RPC-compatible. Provision with Espressif's ESP BLE Provisioning mobile
-app using the service name printed on the serial console.
+app using the `RetroScope_XXXXXX` service name printed on the serial console.
 
 ## Google photo picker
 
+Use API method tested in photo_picker_test\photo_picker.py
+
+Be a TV style device.
+
+Create a Google Cloud project, enable the Google Photos Library API, and create an OAuth 2.0 client ID for a desktop application. Download the `credentials.json` file and place it in the `photo_picker_test` directory.
+
+## TODO
+
+- [ ] Add Google token. Compile time?
+- [ ] Initialize Google Photos API.
+- [ ] BLE provisioning uses per-device proof-of-possession string. Generate and
+    store in flash.
+- [ ] Add Google photo picker to the ESP32-P4 firmware.
+- [ ] Display on screen the provisioning name and the proof-of-possession string.
+- [ ] Display on screen network state. IP address and Wi-Fi signal strength.
+- [ ] Add a QR code for the provisioning URL?
+- [ ] Add a QR code for the Google photo picker URL.
+- [ ] Add a QR code for Apple and Google provisioning apps.
+- [ ] Add a working directory to the sd card at `/sdcard/photos`.
+- [ ] Publish manual to GitHub Pages.
+
+## Done
+
+[x] ESP BlueTooth Provisioning.
+[x] Join Wi-Fi network.
