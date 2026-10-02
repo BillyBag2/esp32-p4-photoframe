@@ -9,6 +9,7 @@ typedef struct {
     bool wifi_connected;
     char wifi_state[24];
     char ssid[33];
+    char ip_address[16];
     char ble_name[18];
     char proof_of_possession[16];
 } provisioning_status_t;

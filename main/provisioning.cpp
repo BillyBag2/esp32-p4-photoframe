@@ -85,6 +85,7 @@ void event_handler(void *, esp_event_base_t base, int32_t id, void *data)
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         portENTER_CRITICAL(&status_lock);
         status.wifi_connected = false;
+        status.ip_address[0] = '\0';
         set_status_text(status.wifi_state, sizeof(status.wifi_state), "Reconnecting");
         portEXIT_CRITICAL(&status_lock);
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
@@ -92,6 +93,7 @@ void event_handler(void *, esp_event_base_t base, int32_t id, void *data)
         portENTER_CRITICAL(&status_lock);
         status.wifi_connected = true;
         set_status_text(status.wifi_state, sizeof(status.wifi_state), "Connected");
+        std::snprintf(status.ip_address, sizeof(status.ip_address), IPSTR, IP2STR(&event->ip_info.ip));
         portEXIT_CRITICAL(&status_lock);
         ESP_LOGI(TAG, "Connected, IP: " IPSTR, IP2STR(&event->ip_info.ip));
     }

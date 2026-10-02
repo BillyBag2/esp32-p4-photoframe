@@ -71,27 +71,29 @@ Create a Google Cloud project, enable the Google Photos Library API, and create 
 
 - [x] SSID
 - [ ] IP address
-- [ ] Wi-Fi signal strength
+- [ ] Wi-Fi signal strength (RSSI)
 - [x] BLE provisioning name
 - [x] BLE proof-of-possession string
-- [ ] Temperature
-- [ ] Accelerometer orientation
-- [ ] SD card mount status
-- [ ] SD card free space
-- [ ] SD card used space
-- [ ] SD card total space
-- [ ] CPU temperature
-- [ ] CPU frequency
-- [ ] CPU usage
-- [ ] Memory usage
-- [ ] Free heap
-- [ ] Free PSRAM
-- [ ] Free internal storage
-- [ ] Battery voltage
+- [ ] Accelerometer orientation (normal or inverted, landscape or portrait)
+- [ ] SD card mount status 
+- [ ] SD card free space (MB)
+- [ ] SD card used space (MB)
+- [ ] SD card total space (MB)
+- [ ] CPU temperature (°C)
+- [ ] CPU frequency (MHz)
+- [ ] CPU usage (%)
+- [ ] Memory usage (%)
+- [ ] Free heap (Kbytes)
+- [ ] Free PSRAM (kbytes)
+- [ ] Free internal storage (bytes)
+- [ ] Battery voltage (V)
 - [ ] Battery charge percentage
-- [ ] Battery charging status
-- [ ] Battery charging current
+- [ ] Battery charging status (charging, discharging, external power)
+- [ ] Battery charging current (+/-mA)
 
+### Status items needing additional managed components or hardware
+
+- Battery voltage, charge percentage, charging state, and charging current need a compatible battery monitor/charger interface and corresponding driver support.
 
 ## Done
 

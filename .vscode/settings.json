@@ -80,11 +80,12 @@
       "NUMS",
       "photoframe",
       "PSRAM",
+      "RSSI",
       "sccb",
       "sdcard",
       "SDIO",
       "sdkconfig",
       "SDMMC"
     ],
-    "idf.port": "COM3"
+    "idf.port": "COM13"
 }

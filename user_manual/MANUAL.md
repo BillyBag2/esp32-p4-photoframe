@@ -19,6 +19,8 @@ Use up to 32GB SDCard formatted as FAT32. The required directory structure will 
 
 RetroScope is designed to have the SD Card permanently inserted. For some hardware the card is not removable.
 
+Add `token.json` to the `RetroScope` directory. This file is created by the Google photo picker and contains the OAuth2 access token for the Google Photos API. Use a developer token with a limited number of named users.
+
 ## Connecting to your Wi-Fi
 
 Download the latest ESP32 provisioning app from the Google Play Store or Apple

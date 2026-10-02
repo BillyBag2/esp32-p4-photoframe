@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cmath>
 
 #include "bsp/m5stack_tab5.h"
 #include "dashboard.hpp"
@@ -7,15 +8,57 @@
 #include "esp_hosted.h"
 #include "esp_hosted_misc.h"
 #include "esp_log.h"
+#include "esp_vfs_fat.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "provisioning.hpp"
 #include "retro_badge_asset.hpp"
+#include "wear_levelling.h"
 
 namespace {
 constexpr char TAG[] = "photoframe";
 lv_display_t *display;
+// LVGL keeps a pointer to this descriptor while the image is displayed.
+// Give it static lifetime because app_main returns after starting the services.
+lv_image_dsc_t badge_image;
+
+void accelerometer_event(void *, sensor_event_base_t, int32_t event_id, void *event_data)
+{
+    if (event_id != SENSOR_ACCE_DATA_READY || event_data == nullptr) {
+        return;
+    }
+
+    const auto *group = static_cast<const sensor_data_group_t *>(event_data);
+    if (group->number == 0) {
+        return;
+    }
+    const axis3_t &acceleration = group->sensor_data[0].acce;
+    constexpr float hysteresis_g = 0.20F;
+    if (std::fabs(std::fabs(acceleration.x) - std::fabs(acceleration.y)) < hysteresis_g) {
+        return;
+    }
+
+    if (std::fabs(acceleration.x) > std::fabs(acceleration.y)) {
+        dashboard_set_orientation(acceleration.x > 0 ? "Landscape (normal)" : "Landscape (inverted)");
+    } else {
+        dashboard_set_orientation(acceleration.y > 0 ? "Portrait (normal)" : "Portrait (inverted)");
+    }
+}
+
+esp_err_t start_orientation_sensor()
+{
+    bsp_sensor_config_t config = {
+        .type = IMU_ID,
+        .mode = MODE_POLLING,
+        .period = 250,
+    };
+    sensor_handle_t sensor = nullptr;
+    ESP_RETURN_ON_ERROR(bsp_sensor_init(&config, &sensor), TAG, "BMI270 initialization");
+    ESP_RETURN_ON_ERROR(iot_sensor_handler_register(sensor, accelerometer_event, nullptr), TAG,
+                        "BMI270 event handler");
+    return iot_sensor_start(sensor);
+}
 
 esp_err_t decode_badge(lv_image_dsc_t *badge)
 {
@@ -99,19 +142,34 @@ extern "C" void app_main(void)
 
     // The 720 px square badge and status panel use the Tab5's 1280 x 720
     // landscape canvas. Keep this startup dashboard in that orientation.
-    lv_image_dsc_t badge = {};
-    ESP_ERROR_CHECK(decode_badge(&badge));
+    badge_image = {};
+    ESP_ERROR_CHECK(decode_badge(&badge_image));
     if (!bsp_display_lock(1000)) {
         ESP_LOGE(TAG, "Could not lock LVGL display for dashboard setup");
-        std::free(const_cast<uint8_t *>(badge.data));
+        std::free(const_cast<uint8_t *>(badge_image.data));
         return;
     }
-    // Rotation 90 maps LVGL's 1280 x 720 landscape canvas onto the panel's
+    // Rotation 270 maps LVGL's 1280 x 720 landscape canvas onto the panel's
     // native 720 x 1280 portrait scanout with the expected left-to-right order.
     bsp_display_rotate(display, LV_DISPLAY_ROTATION_270);
-    err = dashboard_start(&badge);
+    err = dashboard_start(&badge_image);
     bsp_display_unlock();
     ESP_ERROR_CHECK(err);
+
+    esp_vfs_fat_mount_config_t internal_mount_config = VFS_FAT_MOUNT_DEFAULT_CONFIG();
+    internal_mount_config.max_files = 4;
+    wl_handle_t internal_wl_handle = WL_INVALID_HANDLE;
+    err = esp_vfs_fat_spiflash_mount_rw_wl("/internal", "storage", &internal_mount_config,
+                                          &internal_wl_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Internal FAT storage unavailable: %s", esp_err_to_name(err));
+    }
+
+    err = start_orientation_sensor();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Orientation sensor unavailable: %s", esp_err_to_name(err));
+        dashboard_set_orientation("Unavailable");
+    }
 
     err = bsp_sdcard_mount();
     if (err != ESP_OK) {
