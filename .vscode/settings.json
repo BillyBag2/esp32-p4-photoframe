@@ -69,17 +69,22 @@
       "eppp",
       "espressif",
       "freetype",
+      "fullclean",
       "intf",
       "LEDC",
       "LIBJPEG",
       "LOGI",
       "LOGW",
       "LVGL",
+      "MIPI",
       "NUMS",
       "photoframe",
+      "PSRAM",
       "sccb",
       "sdcard",
-      "SDIO"
+      "SDIO",
+      "sdkconfig",
+      "SDMMC"
     ],
-    "idf.port": "COM13"
+    "idf.port": "COM3"
 }

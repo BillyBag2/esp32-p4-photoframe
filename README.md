@@ -67,6 +67,32 @@ Create a Google Cloud project, enable the Google Photos Library API, and create 
 - [ ] Add a working directory to the sd card at `/sdcard/photos`.
 - [ ] Publish manual to GitHub Pages.
 
+## Status info
+
+- [x] SSID
+- [ ] IP address
+- [ ] Wi-Fi signal strength
+- [x] BLE provisioning name
+- [x] BLE proof-of-possession string
+- [ ] Temperature
+- [ ] Accelerometer orientation
+- [ ] SD card mount status
+- [ ] SD card free space
+- [ ] SD card used space
+- [ ] SD card total space
+- [ ] CPU temperature
+- [ ] CPU frequency
+- [ ] CPU usage
+- [ ] Memory usage
+- [ ] Free heap
+- [ ] Free PSRAM
+- [ ] Free internal storage
+- [ ] Battery voltage
+- [ ] Battery charge percentage
+- [ ] Battery charging status
+- [ ] Battery charging current
+
+
 ## Done
 
 [x] ESP BlueTooth Provisioning.

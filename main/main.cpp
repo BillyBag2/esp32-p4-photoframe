@@ -1,6 +1,8 @@
-#include <cmath>
+#include <cstdlib>
 
 #include "bsp/m5stack_tab5.h"
+#include "dashboard.hpp"
+#include "driver/jpeg_decode.h"
 #include "esp_check.h"
 #include "esp_hosted.h"
 #include "esp_hosted_misc.h"
@@ -9,55 +11,67 @@
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "provisioning.hpp"
+#include "retro_badge_asset.hpp"
 
 namespace {
 constexpr char TAG[] = "photoframe";
 lv_display_t *display;
-lv_disp_rotation_t current_rotation = LV_DISPLAY_ROTATION_0;
 
-void accelerometer_event(void *, sensor_event_base_t, int32_t event_id, void *event_data)
+esp_err_t decode_badge(lv_image_dsc_t *badge)
 {
-    if (event_id != SENSOR_ACCE_DATA_READY || event_data == nullptr || display == nullptr) {
-        return;
+    constexpr uint32_t kBadgeDimension = 720;
+    constexpr uint32_t kBytesPerPixel = 2;
+
+    jpeg_decode_picture_info_t info = {};
+    const uint8_t *jpeg = retro_badge_jpeg_data();
+    const size_t jpeg_size = retro_badge_jpeg_size();
+    ESP_RETURN_ON_ERROR(jpeg_decoder_get_info(jpeg, jpeg_size, &info), TAG, "read badge JPEG header");
+    if (info.width != kBadgeDimension || info.height != kBadgeDimension) {
+        ESP_LOGE(TAG, "Badge must be 720 x 720; received %lu x %lu",
+                 static_cast<unsigned long>(info.width), static_cast<unsigned long>(info.height));
+        return ESP_ERR_INVALID_SIZE;
     }
 
-    const auto *group = static_cast<const sensor_data_group_t *>(event_data);
-    if (group->number == 0) {
-        return;
-    }
-    const axis3_t &a = group->sensor_data[0].acce;
-
-    constexpr float hysteresis_g = 0.20F;
-    if (std::fabs(std::fabs(a.x) - std::fabs(a.y)) < hysteresis_g) {
-        return;
-    }
-
-    lv_disp_rotation_t next;
-    if (std::fabs(a.x) > std::fabs(a.y)) {
-        next = a.x > 0 ? LV_DISPLAY_ROTATION_90 : LV_DISPLAY_ROTATION_270;
-    } else {
-        next = a.y > 0 ? LV_DISPLAY_ROTATION_0 : LV_DISPLAY_ROTATION_180;
-    }
-
-    if (next != current_rotation && bsp_display_lock(100)) {
-        bsp_display_rotate(display, next);
-        current_rotation = next;
-        bsp_display_unlock();
-    }
-}
-
-esp_err_t start_orientation_sensor()
-{
-    bsp_sensor_config_t cfg = {
-        .type = IMU_ID,
-        .mode = MODE_POLLING,
-        .period = 250,
+    jpeg_decode_memory_alloc_cfg_t memory_config = {
+        .buffer_direction = JPEG_DEC_ALLOC_OUTPUT_BUFFER,
     };
-    sensor_handle_t sensor = nullptr;
-    ESP_RETURN_ON_ERROR(bsp_sensor_init(&cfg, &sensor), TAG, "BMI270 initialization");
-    ESP_RETURN_ON_ERROR(iot_sensor_handler_register(sensor, accelerometer_event, nullptr), TAG,
-                        "BMI270 event handler");
-    return iot_sensor_start(sensor);
+    size_t buffer_size = 0;
+    uint8_t *pixels = static_cast<uint8_t *>(jpeg_alloc_decoder_mem(
+        kBadgeDimension * kBadgeDimension * kBytesPerPixel, &memory_config, &buffer_size));
+    if (pixels == nullptr) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    jpeg_decoder_handle_t decoder = nullptr;
+    jpeg_decode_engine_cfg_t engine_config = {};
+    engine_config.timeout_ms = 80;
+    esp_err_t err = jpeg_new_decoder_engine(&engine_config, &decoder);
+    if (err == ESP_OK) {
+        jpeg_decode_cfg_t decode_config = {};
+        decode_config.output_format = JPEG_DECODE_OUT_FORMAT_RGB565;
+        decode_config.rgb_order = JPEG_DEC_RGB_ELEMENT_ORDER_BGR;
+        uint32_t decoded_size = 0;
+        err = jpeg_decoder_process(decoder, &decode_config, jpeg, jpeg_size, pixels, buffer_size,
+                                   &decoded_size);
+        jpeg_del_decoder_engine(decoder);
+        if (err == ESP_OK && decoded_size != kBadgeDimension * kBadgeDimension * kBytesPerPixel) {
+            err = ESP_ERR_INVALID_SIZE;
+        }
+        if (err == ESP_OK) {
+            *badge = {};
+            badge->header.magic = LV_IMAGE_HEADER_MAGIC;
+            badge->header.cf = LV_COLOR_FORMAT_RGB565;
+            badge->header.w = kBadgeDimension;
+            badge->header.h = kBadgeDimension;
+            badge->header.stride = kBadgeDimension * kBytesPerPixel;
+            badge->data_size = decoded_size;
+            badge->data = pixels;
+            return ESP_OK;
+        }
+    }
+
+    std::free(pixels);
+    return err;
 }
 } // namespace
 
@@ -83,14 +97,28 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(display == nullptr ? ESP_FAIL : ESP_OK);
     ESP_ERROR_CHECK(bsp_display_backlight_on());
 
+    // The 720 px square badge and status panel use the Tab5's 1280 x 720
+    // landscape canvas. Keep this startup dashboard in that orientation.
+    lv_image_dsc_t badge = {};
+    ESP_ERROR_CHECK(decode_badge(&badge));
+    if (!bsp_display_lock(1000)) {
+        ESP_LOGE(TAG, "Could not lock LVGL display for dashboard setup");
+        std::free(const_cast<uint8_t *>(badge.data));
+        return;
+    }
+    // Rotation 90 maps LVGL's 1280 x 720 landscape canvas onto the panel's
+    // native 720 x 1280 portrait scanout with the expected left-to-right order.
+    bsp_display_rotate(display, LV_DISPLAY_ROTATION_270);
+    err = dashboard_start(&badge);
+    bsp_display_unlock();
+    ESP_ERROR_CHECK(err);
+
     err = bsp_sdcard_mount();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "No SD card mounted: %s", esp_err_to_name(err));
     } else {
         ESP_LOGI(TAG, "SD card mounted at %s", BSP_SD_MOUNT_POINT);
     }
-
-    ESP_ERROR_CHECK(start_orientation_sensor());
 
     // ESP32-P4 has no radio. Power the Tab5's ESP32-C6 and bring up its
     // ESP-Hosted SDIO transport before Wi-Fi/BLE provisioning.
