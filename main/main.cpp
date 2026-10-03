@@ -29,17 +29,25 @@ void accelerometer_event(void *, sensor_event_base_t, int32_t event_id, void *ev
         return;
     }
 
-    const auto *group = static_cast<const sensor_data_group_t *>(event_data);
-    if (group->number == 0) {
+    // The sensor hub posts each sensor_data_t separately, not the enclosing
+    // sensor_data_group_t used internally when acquiring readings.
+    const auto *sensor_data = static_cast<const sensor_data_t *>(event_data);
+    const axis3_t &acceleration = sensor_data->acce;
+    constexpr float hysteresis_g = 0.20F;
+    const float abs_x = std::fabs(acceleration.x);
+    const float abs_y = std::fabs(acceleration.y);
+    if (abs_x + abs_y < hysteresis_g) {
+        // Gravity is mostly on the sensor's Z axis, so neither portrait nor
+        // landscape can be inferred from X/Y while the device is lying flat.
+        dashboard_set_orientation("Flat / transition");
         return;
     }
-    const axis3_t &acceleration = group->sensor_data[0].acce;
-    constexpr float hysteresis_g = 0.20F;
-    if (std::fabs(std::fabs(acceleration.x) - std::fabs(acceleration.y)) < hysteresis_g) {
+    if (std::fabs(abs_x - abs_y) < hysteresis_g) {
+        dashboard_set_orientation("Changing orientation");
         return;
     }
 
-    if (std::fabs(acceleration.x) > std::fabs(acceleration.y)) {
+    if (abs_x > abs_y) {
         dashboard_set_orientation(acceleration.x > 0 ? "Landscape (normal)" : "Landscape (inverted)");
     } else {
         dashboard_set_orientation(acceleration.y > 0 ? "Portrait (normal)" : "Portrait (inverted)");
@@ -149,9 +157,9 @@ extern "C" void app_main(void)
         std::free(const_cast<uint8_t *>(badge_image.data));
         return;
     }
-    // Rotation 270 maps LVGL's 1280 x 720 landscape canvas onto the panel's
-    // native 720 x 1280 portrait scanout with the expected left-to-right order.
-    bsp_display_rotate(display, LV_DISPLAY_ROTATION_270);
+    // Tab5 mapping: 0=portrait, 90=landscape, 180=portrait inverted,
+    // 270=landscape inverted. Sensor reporting remains independent.
+    bsp_display_rotate(display, LV_DISPLAY_ROTATION_90);
     err = dashboard_start(&badge_image);
     bsp_display_unlock();
     ESP_ERROR_CHECK(err);

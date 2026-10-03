@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "esp_private/esp_clk.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "esp_vfs_fat.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -16,7 +17,7 @@
 
 namespace {
 constexpr char TAG[] = "dashboard";
-constexpr uint16_t kRowCount = 19;
+constexpr uint16_t kRowCount = 20;
 constexpr char kSdMountPoint[] = "/sdcard";
 constexpr char kInternalMountPoint[] = "/internal";
 
@@ -29,6 +30,7 @@ enum status_row_t : uint16_t {
     kBleNameRow,
     kPopRow,
     kOrientationRow,
+    kUptimeRow,
     kSdStatusRow,
     kSdFreeRow,
     kSdUsedRow,
@@ -67,7 +69,10 @@ void update_status(lv_timer_t *)
 
     set_row(kWifiRow, "Wi-Fi", provisioning.wifi_state);
     set_row(kSsidRow, "SSID", provisioning.ssid);
-    set_row(kIpRow, "IP address", provisioning.ip_address[0] ? provisioning.ip_address : "Not connected");
+    const char *ip_status = provisioning.ip_address[0] != '\0'
+                                ? provisioning.ip_address
+                                : (provisioning.wifi_connected ? "Address unavailable" : "Not connected");
+    set_row(kIpRow, "IP address", ip_status);
 
     wifi_ap_record_t ap_info = {};
     if (provisioning.wifi_connected && esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
@@ -87,6 +92,8 @@ void update_status(lv_timer_t *)
     std::snprintf(orientation, sizeof(orientation), "%s", current_orientation);
     portEXIT_CRITICAL(&orientation_lock);
     set_row(kOrientationRow, "Device orientation", orientation);
+    set_row_fmt(kUptimeRow, "Uptime", "%llu seconds",
+                static_cast<unsigned long long>(esp_timer_get_time() / 1000000));
 
     uint64_t total_bytes = 0;
     uint64_t free_bytes = 0;
@@ -209,7 +216,8 @@ esp_err_t dashboard_start(const lv_image_dsc_t *badge)
 
     constexpr const char *labels[kRowCount] = {
         "Wi-Fi", "SSID", "IP address", "Wi-Fi signal", "BLE", "BLE name",
-        "Proof of ownership", "Device orientation", "SD card", "SD free", "SD used", "SD total",
+        "Proof of ownership", "Device orientation", "Uptime",
+        "SD card", "SD free", "SD used", "SD total",
         "CPU temperature", "CPU frequency", "CPU usage", "Memory usage", "Free heap", "Free PSRAM",
         "Internal storage free",
     };

@@ -18,6 +18,7 @@ constexpr char TAG[] = "provisioning";
 constexpr char kProofOfPossession[] = "myRetroScope";
 
 portMUX_TYPE status_lock = portMUX_INITIALIZER_UNLOCKED;
+bool station_autoconnect = false;
 provisioning_status_t make_initial_status()
 {
     provisioning_status_t initial = {};
@@ -82,12 +83,25 @@ void event_handler(void *, esp_event_base_t base, int32_t id, void *data)
         }
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) {
         set_wifi_state("Connecting");
+        if (station_autoconnect) {
+            const esp_err_t err = esp_wifi_connect();
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Could not connect to provisioned Wi-Fi: %s", esp_err_to_name(err));
+                set_wifi_state("Connection failed");
+            }
+        }
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         portENTER_CRITICAL(&status_lock);
         status.wifi_connected = false;
         status.ip_address[0] = '\0';
         set_status_text(status.wifi_state, sizeof(status.wifi_state), "Reconnecting");
         portEXIT_CRITICAL(&status_lock);
+        if (station_autoconnect) {
+            const esp_err_t err = esp_wifi_connect();
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Wi-Fi reconnect request failed: %s", esp_err_to_name(err));
+            }
+        }
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         const auto *event = static_cast<ip_event_got_ip_t *>(data);
         portENTER_CRITICAL(&status_lock);
@@ -153,7 +167,24 @@ esp_err_t provisioning_start()
     if (provisioned) {
         ESP_LOGI(TAG, "Wi-Fi is already provisioned; BLE provisioning is not advertising");
         network_prov_mgr_deinit();
-        return esp_wifi_start();
+        station_autoconnect = true;
+        ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "start Wi-Fi");
+        // The ESP-Hosted coprocessor may already have obtained a lease before
+        // the host-side GOT_IP event handler was registered. Seed dashboard
+        // state from the live station netif after Wi-Fi starts as well.
+        esp_netif_t *station_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        if (station_netif != nullptr) {
+            esp_netif_ip_info_t ip_info = {};
+            if (esp_netif_get_ip_info(station_netif, &ip_info) == ESP_OK && ip_info.ip.addr != 0) {
+                portENTER_CRITICAL(&status_lock);
+                status.wifi_connected = true;
+                set_status_text(status.wifi_state, sizeof(status.wifi_state), "Connected");
+                std::snprintf(status.ip_address, sizeof(status.ip_address), IPSTR, IP2STR(&ip_info.ip));
+                portEXIT_CRITICAL(&status_lock);
+                ESP_LOGI(TAG, "Station IP: " IPSTR, IP2STR(&ip_info.ip));
+            }
+        }
+        return ESP_OK;
     }
 
     // Security 1 provides proof-of-possession authenticated encryption. Change
