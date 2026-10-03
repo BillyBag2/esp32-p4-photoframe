@@ -18,7 +18,6 @@
 namespace {
 constexpr char TAG[] = "dashboard";
 constexpr uint16_t kRowCount = 20;
-constexpr char kSdMountPoint[] = "/sdcard";
 constexpr char kInternalMountPoint[] = "/internal";
 
 enum status_row_t : uint16_t {
@@ -48,6 +47,7 @@ lv_obj_t *status_table;
 temperature_sensor_handle_t temperature_sensor;
 portMUX_TYPE orientation_lock = portMUX_INITIALIZER_UNLOCKED;
 char current_orientation[32] = "Waiting for sensor";
+char sd_mount_point[32] = "/sdcard";
 
 void set_row(status_row_t row, const char *label, const char *value)
 {
@@ -97,7 +97,7 @@ void update_status(lv_timer_t *)
 
     uint64_t total_bytes = 0;
     uint64_t free_bytes = 0;
-    if (esp_vfs_fat_info(kSdMountPoint, &total_bytes, &free_bytes) == ESP_OK) {
+    if (esp_vfs_fat_info(sd_mount_point, &total_bytes, &free_bytes) == ESP_OK) {
         set_row(kSdStatusRow, "SD card", "Mounted");
         set_row_fmt(kSdFreeRow, "SD free", "%llu MB", free_bytes / (1024 * 1024));
         set_row_fmt(kSdUsedRow, "SD used", "%llu MB", (total_bytes - free_bytes) / (1024 * 1024));
@@ -163,11 +163,12 @@ void dashboard_set_orientation(const char *orientation)
     portEXIT_CRITICAL(&orientation_lock);
 }
 
-esp_err_t dashboard_start(const lv_image_dsc_t *badge)
+esp_err_t dashboard_start(const lv_image_dsc_t *badge, const char *mount_point)
 {
-    if (badge == nullptr) {
+    if (badge == nullptr || mount_point == nullptr || mount_point[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }
+    std::snprintf(sd_mount_point, sizeof(sd_mount_point), "%s", mount_point);
 
     temperature_sensor_config_t temperature_config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
     if (temperature_sensor_install(&temperature_config, &temperature_sensor) == ESP_OK) {

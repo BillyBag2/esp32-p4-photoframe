@@ -8,6 +8,14 @@
 | ESP32-P4-Panel-ETH-2RO | Wish list |
 | JC8012P4A1C_I_W_Y      | Wish list |
 
+The firmware selects hardware through `RETROSCOPE_TARGET`. Shared dashboard,
+storage reporting, orientation logic, and ESP-Hosted C6 Wi-Fi/BLE provisioning
+stay in the application layer. Board display, SD card, I2C bus, accelerometer,
+and C6 power control belong to a target HAL. The BMI270 sensor-hub adapter is
+shared under `main/hardware/common` and can be reused by targets that provide
+an I2C bus. The two wish-list targets currently have compile-only stubs pending
+confirmed pin, display, memory, and peripheral details.
+
 ## SDCard preparation
 
 Use up to 32GB SDCard formatted as FAT32. The required directory structure will be created automatically. Other files on the SDCard will be ignored. The following directories will be created:

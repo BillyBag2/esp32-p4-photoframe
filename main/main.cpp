@@ -1,7 +1,6 @@
 #include <cstdlib>
 #include <cmath>
 
-#include "bsp/m5stack_tab5.h"
 #include "dashboard.hpp"
 #include "driver/jpeg_decode.h"
 #include "esp_check.h"
@@ -9,8 +8,7 @@
 #include "esp_hosted_misc.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "hardware/hal/platform_hal.hpp"
 #include "nvs_flash.h"
 #include "provisioning.hpp"
 #include "retro_badge_asset.hpp"
@@ -18,24 +16,15 @@
 
 namespace {
 constexpr char TAG[] = "photoframe";
-lv_display_t *display;
 // LVGL keeps a pointer to this descriptor while the image is displayed.
 // Give it static lifetime because app_main returns after starting the services.
 lv_image_dsc_t badge_image;
 
-void accelerometer_event(void *, sensor_event_base_t, int32_t event_id, void *event_data)
+void accelerometer_update(float x, float y, float, void *)
 {
-    if (event_id != SENSOR_ACCE_DATA_READY || event_data == nullptr) {
-        return;
-    }
-
-    // The sensor hub posts each sensor_data_t separately, not the enclosing
-    // sensor_data_group_t used internally when acquiring readings.
-    const auto *sensor_data = static_cast<const sensor_data_t *>(event_data);
-    const axis3_t &acceleration = sensor_data->acce;
     constexpr float hysteresis_g = 0.20F;
-    const float abs_x = std::fabs(acceleration.x);
-    const float abs_y = std::fabs(acceleration.y);
+    const float abs_x = std::fabs(x);
+    const float abs_y = std::fabs(y);
     if (abs_x + abs_y < hysteresis_g) {
         // Gravity is mostly on the sensor's Z axis, so neither portrait nor
         // landscape can be inferred from X/Y while the device is lying flat.
@@ -48,24 +37,10 @@ void accelerometer_event(void *, sensor_event_base_t, int32_t event_id, void *ev
     }
 
     if (abs_x > abs_y) {
-        dashboard_set_orientation(acceleration.x > 0 ? "Landscape (normal)" : "Landscape (inverted)");
+        dashboard_set_orientation(x > 0 ? "Landscape (normal)" : "Landscape (inverted)");
     } else {
-        dashboard_set_orientation(acceleration.y > 0 ? "Portrait (normal)" : "Portrait (inverted)");
+        dashboard_set_orientation(y > 0 ? "Portrait (normal)" : "Portrait (inverted)");
     }
-}
-
-esp_err_t start_orientation_sensor()
-{
-    bsp_sensor_config_t config = {
-        .type = IMU_ID,
-        .mode = MODE_POLLING,
-        .period = 250,
-    };
-    sensor_handle_t sensor = nullptr;
-    ESP_RETURN_ON_ERROR(bsp_sensor_init(&config, &sensor), TAG, "BMI270 initialization");
-    ESP_RETURN_ON_ERROR(iot_sensor_handler_register(sensor, accelerometer_event, nullptr), TAG,
-                        "BMI270 event handler");
-    return iot_sensor_start(sensor);
 }
 
 esp_err_t decode_badge(lv_image_dsc_t *badge)
@@ -135,33 +110,26 @@ extern "C" void app_main(void)
     }
     ESP_ERROR_CHECK(err);
 
-    // Allow the board power rails and I2C peripherals to settle after reset.
-    ESP_LOGI(TAG, "Waiting for Tab5 peripherals to settle");
-    vTaskDelay(pdMS_TO_TICKS(500));
+    ESP_LOGI(TAG, "Starting hardware target: %s", hardware::target_name());
+    lv_display_t *display = nullptr;
+    ESP_ERROR_CHECK(hardware::display_init(&display));
 
-    // ST712x combines LCD and touch. Release the LCD reset before the BSP
-    // probes the touch controller to identify newer Tab5 board revisions.
-    ESP_ERROR_CHECK(bsp_feature_enable(BSP_FEATURE_LCD, true));
-    vTaskDelay(pdMS_TO_TICKS(20));
-
-    display = bsp_display_start();
-    ESP_ERROR_CHECK(display == nullptr ? ESP_FAIL : ESP_OK);
-    ESP_ERROR_CHECK(bsp_display_backlight_on());
-
-    // The 720 px square badge and status panel use the Tab5's 1280 x 720
-    // landscape canvas. Keep this startup dashboard in that orientation.
+    // The target display and status panel use a landscape canvas. Keep this
+    // startup dashboard in that orientation.
     badge_image = {};
     ESP_ERROR_CHECK(decode_badge(&badge_image));
-    if (!bsp_display_lock(1000)) {
+    if (!hardware::display_lock(1000)) {
         ESP_LOGE(TAG, "Could not lock LVGL display for dashboard setup");
         std::free(const_cast<uint8_t *>(badge_image.data));
         return;
     }
-    // Tab5 mapping: 0=portrait, 90=landscape, 180=portrait inverted,
+    // Rotation values: 0=portrait, 90=landscape, 180=portrait inverted,
     // 270=landscape inverted. Sensor reporting remains independent.
-    bsp_display_rotate(display, LV_DISPLAY_ROTATION_90);
-    err = dashboard_start(&badge_image);
-    bsp_display_unlock();
+    err = hardware::display_set_rotation(display, LV_DISPLAY_ROTATION_90);
+    if (err == ESP_OK) {
+        err = dashboard_start(&badge_image, hardware::sdcard_mount_point());
+    }
+    hardware::display_unlock();
     ESP_ERROR_CHECK(err);
 
     esp_vfs_fat_mount_config_t internal_mount_config = VFS_FAT_MOUNT_DEFAULT_CONFIG();
@@ -173,23 +141,21 @@ extern "C" void app_main(void)
         ESP_LOGW(TAG, "Internal FAT storage unavailable: %s", esp_err_to_name(err));
     }
 
-    err = start_orientation_sensor();
+    err = hardware::accelerometer_start(accelerometer_update, nullptr);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "Orientation sensor unavailable: %s", esp_err_to_name(err));
         dashboard_set_orientation("Unavailable");
     }
 
-    err = bsp_sdcard_mount();
+    err = hardware::sdcard_mount();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "No SD card mounted: %s", esp_err_to_name(err));
     } else {
-        ESP_LOGI(TAG, "SD card mounted at %s", BSP_SD_MOUNT_POINT);
+        ESP_LOGI(TAG, "SD card mounted at %s", hardware::sdcard_mount_point());
     }
 
-    // ESP32-P4 has no radio. Power the Tab5's ESP32-C6 and bring up its
-    // ESP-Hosted SDIO transport before Wi-Fi/BLE provisioning.
-    ESP_ERROR_CHECK(bsp_feature_enable(BSP_FEATURE_WIFI, true));
-    vTaskDelay(pdMS_TO_TICKS(200));
+    // All supported targets use a C6-style ESP-Hosted radio coprocessor.
+    ESP_ERROR_CHECK(hardware::c6_radio_enable());
     ESP_ERROR_CHECK(static_cast<esp_err_t>(esp_hosted_init()));
     err = static_cast<esp_err_t>(esp_hosted_connect_to_slave());
     if (err != ESP_OK) {
@@ -217,5 +183,5 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(esp_hosted_bt_controller_enable());
     ESP_ERROR_CHECK(provisioning_start());
 
-    ESP_LOGI(TAG, "Tab5 photo frame hardware initialized");
+    ESP_LOGI(TAG, "%s photo frame hardware initialized", hardware::target_name());
 }

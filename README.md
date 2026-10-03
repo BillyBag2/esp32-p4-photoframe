@@ -1,17 +1,24 @@
-# ESP32-P4 Photo Frame (M5Stack Tab5)
+# ESP32-P4 Photo Frame
 
-ESP-IDF firmware foundation for the M5Stack Tab5. It initializes the 5-inch
-MIPI-DSI display with LVGL 9, mounts the microSD card, uses the BMI270
-accelerometer to rotate the display, and exposes Wi-Fi provisioning over BLE.
+ESP-IDF firmware for ESP32-P4 photo frame boards. Shared application code
+provides the LVGL dashboard, photo badge, storage reporting, orientation logic,
+and Wi-Fi/BLE provisioning. A small hardware abstraction layer keeps board
+drivers and pin choices out of the application.
 
 ## Hardware support
 
-- Official `espressif/m5stack_tab5` BSP for display, touch, SDMMC and BMI270
+- M5Stack Tab5 HAL uses the official `espressif/m5stack_tab5` BSP for display,
+  touch, SDMMC, and its I2C bus
+- BMI270 sensor-hub adapter lives under `main/hardware/common` and accepts an
+  I2C bus supplied by a target; other boards with the same IMU can reuse it
+- ESP32-P4-Panel-ETH-2RO and JC8012P4A1C_I_W_Y have compile-only HAL stubs until
+  their display, storage, sensor, and radio wiring is defined
 - LVGL 9.6 (resolved by the component manager)
 - ESP32-P4 hardware JPEG driver (`esp_driver_jpeg`)
 - SD card mounted at `/sdcard`
 - Four-way orientation with a 0.2 g hysteresis region
-- ESP32-C6 Wi-Fi/BLE via ESP-Hosted over the Tab5 SDIO wiring
+- ESP32-C6 Wi-Fi/BLE via the shared ESP-Hosted provisioning path; SDIO pins and
+  reset wiring are target defaults
 - ESP BLE Provisioning Security 1; service name `RetroScope_XXXXXX`
 
 The development proof-of-possession string is `myRetroScope`. Replace it with a
@@ -19,23 +26,27 @@ per-device secret before production deployment.
 
 ## Build
 
-Use an ESP-IDF 6.1 environment (the BSP supports IDF 5.4 or newer):
+Use an ESP-IDF 6.1 environment. The default target is `tab5`:
 
 ```text
-idf.py set-target esp32p4
-idf.py build
-idf.py flash monitor
+idf.py -B build-tab5 -D RETROSCOPE_TARGET=tab5 set-target esp32p4 build
 ```
 
-The component manager downloads and locks the BSP and libraries declared in
-`main/idf_component.yml`. Configuration is split into:
+Flash and monitor that build with `idf.py -B build-tab5 flash monitor`.
 
-- `sdkconfig.defaults` — common LVGL and provisioning settings
-- `sdkconfig.defaults.esp32p4` — P4, PSRAM, hardware/radio and SDIO settings
-- `sdkconfig.defaults.m5stack_tab5` — Tab5 BSP settings
+Select either future target with a separate build directory so each target has
+an independent generated sdkconfig:
 
-If an old `sdkconfig` predates these files, remove it or run
-`idf.py fullclean set-target esp32p4` once so ESP-IDF regenerates it.
+```text
+idf.py -B build-panel -D RETROSCOPE_TARGET=esp32_p4_panel_eth_2ro set-target esp32p4 build
+idf.py -B build-jc8012 -D RETROSCOPE_TARGET=jc8012p4a1c_i_w_y set-target esp32p4 build
+```
+
+Those targets currently compile against unsupported-hardware HAL stubs; their
+sdkconfig defaults leave board wiring and memory details for confirmation.
+Configuration is split into common application defaults, common P4/C6 defaults,
+and per-target defaults. The component manager resolves libraries declared in
+`main/idf_component.yml`.
 
 ## ESP32-C6 firmware
 

@@ -135,7 +135,7 @@ esp_err_t provisioning_start()
     config.app_event_handler = NETWORK_PROV_EVENT_HANDLER_NONE;
     ESP_RETURN_ON_ERROR(network_prov_mgr_init(config), TAG, "provisioning manager");
 
-    // Tab5's C6 factory image may contain this placeholder station profile.
+    // A C6 factory image may contain this placeholder station profile.
     // The provisioning manager treats every nonempty SSID as user credentials,
     // which would otherwise prevent its BLE service from advertising.
     wifi_config_t wifi_config = {};

@@ -1,0 +1,4 @@
+# ESP32-P4-Panel-ETH-2RO target.
+# C6 ESP-Hosted transport is inherited from sdkconfig.defaults.esp32p4.
+# Fill in flash/PSRAM, SDIO pin, reset, display, and storage settings when the
+# board's hardware configuration is confirmed.
