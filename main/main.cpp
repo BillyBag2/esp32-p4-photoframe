@@ -16,9 +16,30 @@
 
 namespace {
 constexpr char TAG[] = "photoframe";
+lv_display_t *display;
+lv_disp_rotation_t display_rotation = LV_DISPLAY_ROTATION_90;
 // LVGL keeps a pointer to this descriptor while the image is displayed.
 // Give it static lifetime because app_main returns after starting the services.
 lv_image_dsc_t badge_image;
+
+void set_display_rotation(lv_disp_rotation_t rotation)
+{
+    if (display == nullptr || rotation == display_rotation) {
+        return;
+    }
+
+    if (!hardware::display_lock(1000)) {
+        ESP_LOGW(TAG, "Could not lock display to change orientation");
+        return;
+    }
+    const esp_err_t err = hardware::display_set_rotation(display, rotation);
+    hardware::display_unlock();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Could not change display orientation: %s", esp_err_to_name(err));
+        return;
+    }
+    display_rotation = rotation;
+}
 
 void accelerometer_update(float x, float y, float, void *)
 {
@@ -37,7 +58,13 @@ void accelerometer_update(float x, float y, float, void *)
     }
 
     if (abs_x > abs_y) {
-        dashboard_set_orientation(x > 0 ? "Landscape (normal)" : "Landscape (inverted)");
+        if (x > 0) {
+            dashboard_set_orientation("Landscape (normal)");
+            set_display_rotation(LV_DISPLAY_ROTATION_90);
+        } else {
+            dashboard_set_orientation("Landscape (inverted)");
+            set_display_rotation(LV_DISPLAY_ROTATION_270);
+        }
     } else {
         dashboard_set_orientation(y > 0 ? "Portrait (normal)" : "Portrait (inverted)");
     }
@@ -111,7 +138,7 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(err);
 
     ESP_LOGI(TAG, "Starting hardware target: %s", hardware::target_name());
-    lv_display_t *display = nullptr;
+    display = nullptr;
     ESP_ERROR_CHECK(hardware::display_init(&display));
 
     // The target display and status panel use a landscape canvas. Keep this
