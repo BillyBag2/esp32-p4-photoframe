@@ -44,6 +44,8 @@ enum status_row_t : uint16_t {
 };
 
 lv_obj_t *status_table;
+lv_obj_t *screens[3];
+uint8_t active_screen;
 temperature_sensor_handle_t temperature_sensor;
 portMUX_TYPE orientation_lock = portMUX_INITIALIZER_UNLOCKED;
 char current_orientation[32] = "Waiting for sensor";
@@ -153,6 +155,37 @@ void update_status(lv_timer_t *)
         set_row(kInternalFreeRow, "Internal storage free", "Unavailable");
     }
 }
+
+void screen_gesture(lv_event_t *)
+{
+    const lv_dir_t direction = lv_indev_get_gesture_dir(lv_indev_active());
+    if (direction == LV_DIR_BOTTOM) {
+        active_screen = static_cast<uint8_t>((active_screen + 1) % 3);
+    } else if (direction == LV_DIR_TOP) {
+        active_screen = static_cast<uint8_t>((active_screen + 2) % 3);
+    } else {
+        return;
+    }
+    lv_screen_load_anim(screens[active_screen], LV_SCREEN_LOAD_ANIM_NONE, 0, 0, false);
+}
+
+lv_obj_t *create_artwork_screen(const lv_image_dsc_t *image)
+{
+    lv_obj_t *screen = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_pad_all(screen, 0, 0);
+    lv_obj_set_scrollable(screen, false);
+    lv_obj_set_press_lock(screen, true);
+
+    lv_obj_t *artwork = lv_image_create(screen);
+    lv_image_set_src(artwork, image);
+    lv_obj_align(artwork, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_clickable(artwork, true);
+    lv_obj_set_gesture_bubble(artwork, true);
+    lv_obj_set_press_lock(artwork, true);
+    lv_obj_add_event_cb(screen, screen_gesture, LV_EVENT_GESTURE, nullptr);
+    return screen;
+}
 } // namespace
 
 void dashboard_set_orientation(const char *orientation)
@@ -163,9 +196,13 @@ void dashboard_set_orientation(const char *orientation)
     portEXIT_CRITICAL(&orientation_lock);
 }
 
-esp_err_t dashboard_start(const lv_image_dsc_t *badge, const char *mount_point)
+esp_err_t dashboard_start(const lv_image_dsc_t *badge,
+                          const lv_image_dsc_t *load_media,
+                          const lv_image_dsc_t *settings,
+                          const char *mount_point)
 {
-    if (badge == nullptr || mount_point == nullptr || mount_point[0] == '\0') {
+    if (badge == nullptr || load_media == nullptr || settings == nullptr ||
+        mount_point == nullptr || mount_point[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }
     std::snprintf(sd_mount_point, sizeof(sd_mount_point), "%s", mount_point);
@@ -178,9 +215,14 @@ esp_err_t dashboard_start(const lv_image_dsc_t *badge, const char *mount_point)
         }
     }
 
-    lv_obj_t *screen = lv_screen_active();
+    lv_obj_t *screen = lv_obj_create(nullptr);
+    screens[0] = screen;
+    screens[1] = create_artwork_screen(load_media);
+    screens[2] = create_artwork_screen(settings);
+    active_screen = 0;
     lv_obj_clean(screen);
-    lv_obj_set_style_bg_color(screen, lv_color_hex(0x101820), 0);
+    lv_obj_set_press_lock(screen, true);
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_pad_all(screen, 0, 0);
     lv_obj_set_flex_flow(screen, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(screen, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
@@ -189,18 +231,24 @@ esp_err_t dashboard_start(const lv_image_dsc_t *badge, const char *mount_point)
     lv_image_set_src(image, badge);
     lv_obj_set_size(image, 720, 720);
     lv_obj_set_style_pad_all(image, 0, 0);
+    lv_obj_set_clickable(image, true);
+    lv_obj_set_gesture_bubble(image, true);
+    lv_obj_set_press_lock(image, true);
+    lv_obj_add_event_cb(screen, screen_gesture, LV_EVENT_GESTURE, nullptr);
 
     lv_obj_t *panel = lv_obj_create(screen);
     lv_obj_set_height(panel, LV_PCT(100));
     lv_obj_set_flex_grow(panel, 1);
     lv_obj_set_style_radius(panel, 0, 0);
     lv_obj_set_style_border_width(panel, 0, 0);
-    lv_obj_set_style_bg_color(panel, lv_color_hex(0x192834), 0);
+    lv_obj_set_style_bg_color(panel, lv_color_hex(0xF2F2F2), 0);
     lv_obj_set_style_pad_all(panel, 20, 0);
+    lv_obj_set_gesture_bubble(panel, true);
+    lv_obj_set_press_lock(panel, true);
 
     lv_obj_t *title = lv_label_create(panel);
     lv_label_set_text(title, "RetroScope status");
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(title, lv_color_hex(0x101820), 0);
     lv_obj_align(title, LV_ALIGN_TOP_LEFT, 0, 0);
 
     status_table = lv_table_create(panel);
@@ -209,9 +257,11 @@ esp_err_t dashboard_start(const lv_image_dsc_t *badge, const char *mount_point)
     lv_table_set_column_width(status_table, 1, 300);
     lv_table_set_row_count(status_table, kRowCount);
     lv_obj_set_width(status_table, LV_PCT(100));
-    lv_obj_set_style_text_color(status_table, lv_color_hex(0xF4F8FA), LV_PART_ITEMS);
-    lv_obj_set_style_bg_color(status_table, lv_color_hex(0x223744), LV_PART_ITEMS);
-    lv_obj_set_style_border_color(status_table, lv_color_hex(0x406070), LV_PART_ITEMS);
+    lv_obj_set_gesture_bubble(status_table, true);
+    lv_obj_set_press_lock(status_table, true);
+    lv_obj_set_style_text_color(status_table, lv_color_hex(0x101820), LV_PART_ITEMS);
+    lv_obj_set_style_bg_color(status_table, lv_color_hex(0xFFFFFF), LV_PART_ITEMS);
+    lv_obj_set_style_border_color(status_table, lv_color_hex(0xC8CDD2), LV_PART_ITEMS);
     lv_obj_set_style_pad_all(status_table, 3, LV_PART_ITEMS);
     lv_obj_align(status_table, LV_ALIGN_TOP_LEFT, 0, 36);
 
@@ -229,5 +279,6 @@ esp_err_t dashboard_start(const lv_image_dsc_t *badge, const char *mount_point)
 
     update_status(nullptr);
     lv_timer_create(update_status, 1000, nullptr);
+    lv_screen_load(screen);
     return ESP_OK;
 }

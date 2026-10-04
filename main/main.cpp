@@ -12,6 +12,7 @@
 #include "nvs_flash.h"
 #include "provisioning.hpp"
 #include "retro_badge_asset.hpp"
+#include "screen_assets.hpp"
 #include "wear_levelling.h"
 
 namespace {
@@ -21,6 +22,8 @@ lv_disp_rotation_t display_rotation = LV_DISPLAY_ROTATION_90;
 // LVGL keeps a pointer to this descriptor while the image is displayed.
 // Give it static lifetime because app_main returns after starting the services.
 lv_image_dsc_t badge_image;
+lv_image_dsc_t load_media_image;
+lv_image_dsc_t settings_image;
 
 void set_display_rotation(lv_disp_rotation_t rotation)
 {
@@ -70,17 +73,17 @@ void accelerometer_update(float x, float y, float, void *)
     }
 }
 
-esp_err_t decode_badge(lv_image_dsc_t *badge)
+esp_err_t decode_jpeg_image(const uint8_t *jpeg, size_t jpeg_size, const char *name,
+                            lv_image_dsc_t *image)
 {
     constexpr uint32_t kBadgeDimension = 720;
     constexpr uint32_t kBytesPerPixel = 2;
 
     jpeg_decode_picture_info_t info = {};
-    const uint8_t *jpeg = retro_badge_jpeg_data();
-    const size_t jpeg_size = retro_badge_jpeg_size();
-    ESP_RETURN_ON_ERROR(jpeg_decoder_get_info(jpeg, jpeg_size, &info), TAG, "read badge JPEG header");
+    ESP_RETURN_ON_ERROR(jpeg_decoder_get_info(jpeg, jpeg_size, &info), TAG,
+                        "read %s JPEG header", name);
     if (info.width != kBadgeDimension || info.height != kBadgeDimension) {
-        ESP_LOGE(TAG, "Badge must be 720 x 720; received %lu x %lu",
+        ESP_LOGE(TAG, "%s must be 720 x 720; received %lu x %lu", name,
                  static_cast<unsigned long>(info.width), static_cast<unsigned long>(info.height));
         return ESP_ERR_INVALID_SIZE;
     }
@@ -111,14 +114,23 @@ esp_err_t decode_badge(lv_image_dsc_t *badge)
             err = ESP_ERR_INVALID_SIZE;
         }
         if (err == ESP_OK) {
-            *badge = {};
-            badge->header.magic = LV_IMAGE_HEADER_MAGIC;
-            badge->header.cf = LV_COLOR_FORMAT_RGB565;
-            badge->header.w = kBadgeDimension;
-            badge->header.h = kBadgeDimension;
-            badge->header.stride = kBadgeDimension * kBytesPerPixel;
-            badge->data_size = decoded_size;
-            badge->data = pixels;
+            const auto *decoded_pixels = reinterpret_cast<const uint16_t *>(pixels);
+            ESP_LOGI(TAG,
+                     "%s RGB565 samples: overall-first=0x%04X, overall-last=0x%04X, "
+                     "first-line-first=0x%04X, first-line-last=0x%04X",
+                     name,
+                     static_cast<unsigned>(decoded_pixels[0]),
+                     static_cast<unsigned>(decoded_pixels[kBadgeDimension * kBadgeDimension - 1]),
+                     static_cast<unsigned>(decoded_pixels[kBadgeDimension - 1]),
+                     static_cast<unsigned>(decoded_pixels[0]));
+            *image = {};
+            image->header.magic = LV_IMAGE_HEADER_MAGIC;
+            image->header.cf = LV_COLOR_FORMAT_RGB565;
+            image->header.w = kBadgeDimension;
+            image->header.h = kBadgeDimension;
+            image->header.stride = kBadgeDimension * kBytesPerPixel;
+            image->data_size = decoded_size;
+            image->data = pixels;
             return ESP_OK;
         }
     }
@@ -144,17 +156,27 @@ extern "C" void app_main(void)
     // The target display and status panel use a landscape canvas. Keep this
     // startup dashboard in that orientation.
     badge_image = {};
-    ESP_ERROR_CHECK(decode_badge(&badge_image));
+    load_media_image = {};
+    settings_image = {};
+    ESP_ERROR_CHECK(decode_jpeg_image(retro_badge_jpeg_data(), retro_badge_jpeg_size(),
+                                      "Retro badge", &badge_image));
+    ESP_ERROR_CHECK(decode_jpeg_image(load_media_jpeg_data(), load_media_jpeg_size(),
+                                      "Load media image", &load_media_image));
+    ESP_ERROR_CHECK(decode_jpeg_image(settings_jpeg_data(), settings_jpeg_size(),
+                                      "Settings image", &settings_image));
     if (!hardware::display_lock(1000)) {
         ESP_LOGE(TAG, "Could not lock LVGL display for dashboard setup");
         std::free(const_cast<uint8_t *>(badge_image.data));
+        std::free(const_cast<uint8_t *>(load_media_image.data));
+        std::free(const_cast<uint8_t *>(settings_image.data));
         return;
     }
     // Rotation values: 0=portrait, 90=landscape, 180=portrait inverted,
     // 270=landscape inverted. Sensor reporting remains independent.
     err = hardware::display_set_rotation(display, LV_DISPLAY_ROTATION_90);
     if (err == ESP_OK) {
-        err = dashboard_start(&badge_image, hardware::sdcard_mount_point());
+        err = dashboard_start(&badge_image, &load_media_image, &settings_image,
+                              hardware::sdcard_mount_point());
     }
     hardware::display_unlock();
     ESP_ERROR_CHECK(err);
