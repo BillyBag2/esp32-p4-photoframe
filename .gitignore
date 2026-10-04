@@ -19,6 +19,7 @@
 # Build artifacts and directories
 **/build/
 build/
+/build-*/
 *.o
 *.a
 *.out
@@ -82,4 +83,3 @@ Desktop.ini
 /photo_picker_test/client_secret*.json
 /photo_picker_test/picked_photos/**
 /photo_picker_test/picked_photos/token*.json
-

@@ -21,6 +21,13 @@ drivers and pin choices out of the application.
   reset wiring are target defaults
 - ESP BLE Provisioning Security 1; service name `RetroScope_XXXXXX`
 
+## Hardware differences
+
+| Target | Display  | SD Card  | IMU    | ESP32-C6 | URL                                                   |
+|--------|----------|----------|--------|----------|-------------------------------------------------------|
+| Tab5   | 1280×720 | External | BMI270 | Yes      | [M5Stack Tab5](https://docs.m5stack.com/en/core/Tab5) |
+| JC8012 | 1280x800 | External |  |       | [Github](https://github.com/guitionofficial/P4-series/tree/master/JC8012P4A1C_I_W_Y/JC8012P4A1C_I_W_Y) |
+
 ## Target architecture
 
 The firmware selects hardware through `RETROSCOPE_TARGET`. Shared dashboard,
@@ -93,16 +100,16 @@ Create a Google Cloud project, enable the Google Photos Library API, and create 
 ## Status info
 
 - [x] SSID
-- [ ] IP address
-- [ ] Wi-Fi signal strength (RSSI)
+- [x] IP address
+- [x] Wi-Fi signal strength (RSSI)
 - [x] BLE provisioning name
 - [x] BLE proof-of-possession string
-- [ ] Accelerometer orientation (normal or inverted, landscape or portrait)
+- [x] Accelerometer orientation (normal or inverted, landscape or portrait)
 - [ ] SD card mount status 
 - [ ] SD card free space (MB)
 - [ ] SD card used space (MB)
 - [ ] SD card total space (MB)
-- [ ] CPU temperature (°C)
+- [x] CPU temperature (°C)
 - [ ] CPU frequency (MHz)
 - [ ] CPU usage (%)
 - [ ] Memory usage (%)

@@ -1,0 +1,250 @@
+{
+    "version":  "2.0.0",
+    "tasks":  [
+                  {
+                      "label":  "Tab5: Build",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-tab5 -D RETROSCOPE_TARGET=tab5 build; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "group":  {
+                                    "kind":  "build",
+                                    "isDefault":  true
+                                },
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "Tab5: Set ESP32-P4 target and build",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-tab5 -D RETROSCOPE_TARGET=tab5 set-target esp32p4 build; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "Tab5: Clean",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-tab5 -D RETROSCOPE_TARGET=tab5 clean; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "Tab5: Full clean",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-tab5 -D RETROSCOPE_TARGET=tab5 fullclean; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "Tab5: Flash",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-tab5 -D RETROSCOPE_TARGET=tab5 flash; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "Tab5: Monitor",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-tab5 -D RETROSCOPE_TARGET=tab5 monitor; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "Tab5: Flash and monitor",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-tab5 -D RETROSCOPE_TARGET=tab5 flash monitor; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "Panel ETH: Build",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-panel -D RETROSCOPE_TARGET=esp32_p4_panel_eth_2ro build; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "group":  "build",
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "Panel ETH: Set ESP32-P4 target and build",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-panel -D RETROSCOPE_TARGET=esp32_p4_panel_eth_2ro set-target esp32p4 build; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "Panel ETH: Clean",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-panel -D RETROSCOPE_TARGET=esp32_p4_panel_eth_2ro clean; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "Panel ETH: Full clean",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-panel -D RETROSCOPE_TARGET=esp32_p4_panel_eth_2ro fullclean; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "Panel ETH: Flash",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-panel -D RETROSCOPE_TARGET=esp32_p4_panel_eth_2ro flash; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "Panel ETH: Monitor",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-panel -D RETROSCOPE_TARGET=esp32_p4_panel_eth_2ro monitor; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "Panel ETH: Flash and monitor",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-panel -D RETROSCOPE_TARGET=esp32_p4_panel_eth_2ro flash monitor; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  }
+              ]
+}

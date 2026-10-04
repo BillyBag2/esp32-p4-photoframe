@@ -229,7 +229,7 @@ esp_err_t dashboard_start(const lv_image_dsc_t *badge,
 
     lv_obj_t *image = lv_image_create(screen);
     lv_image_set_src(image, badge);
-    lv_obj_set_size(image, 720, 720);
+    lv_obj_set_size(image, badge->header.w, badge->header.h);
     lv_obj_set_style_pad_all(image, 0, 0);
     lv_obj_set_clickable(image, true);
     lv_obj_set_gesture_bubble(image, true);

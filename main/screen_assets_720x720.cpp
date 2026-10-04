@@ -1,7 +1,7 @@
 #include "screen_assets.hpp"
 
 namespace {
-const uint8_t kLoad_mediaJpeg[] = {
+const uint8_t kLoadMediaJpeg[] = {
     0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01, 0x00, 0x60,
     0x00, 0x60, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0x0D, 0x09, 0x0A, 0x0B, 0x0A, 0x08, 0x0D,
     0x0B, 0x0B, 0x0B, 0x0F, 0x0E, 0x0D, 0x10, 0x14, 0x21, 0x15, 0x14, 0x12, 0x12, 0x14, 0x28, 0x1D,
@@ -6548,7 +6548,8 @@ const uint8_t kSettingsJpeg[] = {
 
 }
 
-const uint8_t *load_media_jpeg_data() { return kLoad_mediaJpeg; }
-size_t load_media_jpeg_size() { return sizeof(kLoad_mediaJpeg); }
-const uint8_t *settings_jpeg_data() { return kSettingsJpeg; }
-size_t settings_jpeg_size() { return sizeof(kSettingsJpeg); }
+const uint8_t *screen_load_media_jpeg_data() { return kLoadMediaJpeg; }
+size_t screen_load_media_jpeg_size() { return sizeof(kLoadMediaJpeg); }
+const uint8_t *screen_settings_jpeg_data() { return kSettingsJpeg; }
+size_t screen_settings_jpeg_size() { return sizeof(kSettingsJpeg); }
+uint32_t screen_artwork_dimension() { return 720; }

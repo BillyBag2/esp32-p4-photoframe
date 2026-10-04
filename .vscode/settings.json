@@ -30,7 +30,7 @@
   "clangd.arguments": [
     "--background-index",
     "--query-driver=**",
-    "--compile-commands-dir=c:\\repos\\esp32-p4-photoframe\\build"
+    "--compile-commands-dir=${workspaceFolder}/build-tab5"
   ],
    "workbench.colorCustomizations": {
     "activityBar.activeBackground": "#ff6433",
@@ -89,5 +89,5 @@
       "SDMMC",
       "STREQUAL"
     ],
-    "idf.port": "COM13"
+    "idf.port": "COM3"
 }

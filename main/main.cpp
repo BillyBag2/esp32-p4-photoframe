@@ -74,16 +74,17 @@ void accelerometer_update(float x, float y, float, void *)
 }
 
 esp_err_t decode_jpeg_image(const uint8_t *jpeg, size_t jpeg_size, const char *name,
-                            lv_image_dsc_t *image)
+                            uint32_t expected_dimension, lv_image_dsc_t *image)
 {
-    constexpr uint32_t kBadgeDimension = 720;
     constexpr uint32_t kBytesPerPixel = 2;
 
     jpeg_decode_picture_info_t info = {};
     ESP_RETURN_ON_ERROR(jpeg_decoder_get_info(jpeg, jpeg_size, &info), TAG,
                         "read %s JPEG header", name);
-    if (info.width != kBadgeDimension || info.height != kBadgeDimension) {
-        ESP_LOGE(TAG, "%s must be 720 x 720; received %lu x %lu", name,
+    if (info.width != expected_dimension || info.height != expected_dimension) {
+        ESP_LOGE(TAG, "%s must be %lu x %lu; received %lu x %lu", name,
+                 static_cast<unsigned long>(expected_dimension),
+                 static_cast<unsigned long>(expected_dimension),
                  static_cast<unsigned long>(info.width), static_cast<unsigned long>(info.height));
         return ESP_ERR_INVALID_SIZE;
     }
@@ -93,7 +94,8 @@ esp_err_t decode_jpeg_image(const uint8_t *jpeg, size_t jpeg_size, const char *n
     };
     size_t buffer_size = 0;
     uint8_t *pixels = static_cast<uint8_t *>(jpeg_alloc_decoder_mem(
-        kBadgeDimension * kBadgeDimension * kBytesPerPixel, &memory_config, &buffer_size));
+        static_cast<size_t>(expected_dimension) * expected_dimension * kBytesPerPixel,
+        &memory_config, &buffer_size));
     if (pixels == nullptr) {
         return ESP_ERR_NO_MEM;
     }
@@ -110,7 +112,9 @@ esp_err_t decode_jpeg_image(const uint8_t *jpeg, size_t jpeg_size, const char *n
         err = jpeg_decoder_process(decoder, &decode_config, jpeg, jpeg_size, pixels, buffer_size,
                                    &decoded_size);
         jpeg_del_decoder_engine(decoder);
-        if (err == ESP_OK && decoded_size != kBadgeDimension * kBadgeDimension * kBytesPerPixel) {
+        const size_t expected_size = static_cast<size_t>(expected_dimension) * expected_dimension *
+                                     kBytesPerPixel;
+        if (err == ESP_OK && decoded_size != expected_size) {
             err = ESP_ERR_INVALID_SIZE;
         }
         if (err == ESP_OK) {
@@ -120,15 +124,15 @@ esp_err_t decode_jpeg_image(const uint8_t *jpeg, size_t jpeg_size, const char *n
                      "first-line-first=0x%04X, first-line-last=0x%04X",
                      name,
                      static_cast<unsigned>(decoded_pixels[0]),
-                     static_cast<unsigned>(decoded_pixels[kBadgeDimension * kBadgeDimension - 1]),
-                     static_cast<unsigned>(decoded_pixels[kBadgeDimension - 1]),
+                     static_cast<unsigned>(decoded_pixels[expected_dimension * expected_dimension - 1]),
+                     static_cast<unsigned>(decoded_pixels[expected_dimension - 1]),
                      static_cast<unsigned>(decoded_pixels[0]));
             *image = {};
             image->header.magic = LV_IMAGE_HEADER_MAGIC;
             image->header.cf = LV_COLOR_FORMAT_RGB565;
-            image->header.w = kBadgeDimension;
-            image->header.h = kBadgeDimension;
-            image->header.stride = kBadgeDimension * kBytesPerPixel;
+            image->header.w = expected_dimension;
+            image->header.h = expected_dimension;
+            image->header.stride = expected_dimension * kBytesPerPixel;
             image->data_size = decoded_size;
             image->data = pixels;
             return ESP_OK;
@@ -158,12 +162,13 @@ extern "C" void app_main(void)
     badge_image = {};
     load_media_image = {};
     settings_image = {};
+    const uint32_t artwork_dimension = screen_artwork_dimension();
     ESP_ERROR_CHECK(decode_jpeg_image(retro_badge_jpeg_data(), retro_badge_jpeg_size(),
-                                      "Retro badge", &badge_image));
-    ESP_ERROR_CHECK(decode_jpeg_image(load_media_jpeg_data(), load_media_jpeg_size(),
-                                      "Load media image", &load_media_image));
-    ESP_ERROR_CHECK(decode_jpeg_image(settings_jpeg_data(), settings_jpeg_size(),
-                                      "Settings image", &settings_image));
+                                      "Retro badge", artwork_dimension, &badge_image));
+    ESP_ERROR_CHECK(decode_jpeg_image(screen_load_media_jpeg_data(), screen_load_media_jpeg_size(),
+                                      "Load media image", artwork_dimension, &load_media_image));
+    ESP_ERROR_CHECK(decode_jpeg_image(screen_settings_jpeg_data(), screen_settings_jpeg_size(),
+                                      "Settings image", artwork_dimension, &settings_image));
     if (!hardware::display_lock(1000)) {
         ESP_LOGE(TAG, "Could not lock LVGL display for dashboard setup");
         std::free(const_cast<uint8_t *>(badge_image.data));
