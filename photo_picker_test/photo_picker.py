@@ -1,4 +1,4 @@
-"""Google Photos test client for desktop Picker and TV Ambient API flows.
+"""Google Photos Picker test client for desktop and TV/device OAuth flows.
 
 Setup:
   1. Enable the Google Photos Picker API in a Google Cloud project.
@@ -40,14 +40,9 @@ except ImportError as exc:  # Give a useful error instead of a long traceback.
 
 
 API_ROOT = "https://photospicker.googleapis.com/v1"
-AMBIENT_API_ROOT = "https://photosambient.googleapis.com/v1"
 DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 PICKER_SCOPES = ["https://www.googleapis.com/auth/photospicker.mediaitems.readonly"]
-AMBIENT_SCOPES = [
-    "profile",
-    "https://www.googleapis.com/auth/photosambient.mediaitems",
-]
 SCRIPT_DIR = Path(__file__).resolve().parent
 
 
@@ -88,9 +83,15 @@ def load_credentials(
     if auth_flow == "auto" and client_secrets.exists():
         auth_flow = detect_auth_flow(client_secrets)
     credentials: Credentials | None = None
-    scopes = AMBIENT_SCOPES if auth_flow == "device" else PICKER_SCOPES
+    scopes = PICKER_SCOPES
     if token_file.exists():
         credentials = Credentials.from_authorized_user_file(str(token_file), scopes)
+        # google-auth versions that use utcnow() expect expiry to be naive UTC.
+        # Normalize aware ISO timestamps from device-flow tokens to that format.
+        if credentials.expiry and credentials.expiry.tzinfo is not None:
+            credentials.expiry = credentials.expiry.astimezone(timezone.utc).replace(
+                tzinfo=None
+            )
 
     if credentials and credentials.expired and credentials.refresh_token:
         credentials.refresh(Request())
@@ -110,9 +111,7 @@ def load_credentials(
             )
             credentials = flow.run_local_server(port=0, open_browser=True)
         else:
-            credentials = authorize_limited_input_device(
-                client_secrets, request_id or str(uuid.uuid4())
-            )
+            credentials = authorize_limited_input_device(client_secrets)
         auth_flow = selected_flow
 
     token_file.parent.mkdir(parents=True, exist_ok=True)
@@ -120,9 +119,7 @@ def load_credentials(
     return credentials, auth_flow
 
 
-def authorize_limited_input_device(
-    client_secrets: Path, request_id: str
-) -> Credentials:
+def authorize_limited_input_device(client_secrets: Path) -> Credentials:
     """Run Google's OAuth 2.0 flow for TVs and limited-input devices."""
     config = read_client_config(client_secrets)
     client_id = config["client_id"]
@@ -131,14 +128,21 @@ def authorize_limited_input_device(
         DEVICE_CODE_URL,
         json={
             "client_id": client_id,
-            "scope": " ".join(AMBIENT_SCOPES),
-            "state": json.dumps(
-                {"requestId": request_id, "displayName": "ESP32-P4 Photo Frame"}
-            ),
+            "scope": " ".join(PICKER_SCOPES),
         },
         timeout=30,
     )
     if not code_response.ok:
+        try:
+            error_data = code_response.json()
+        except ValueError:
+            error_data = {}
+        if error_data.get("error") == "invalid_scope":
+            raise RuntimeError(
+                "Google's TV/device OAuth flow rejected the Google Photos Picker "
+                "scope. Picker authorization is unavailable through this flow; "
+                "use get_app_token.bat with a Desktop app OAuth client."
+            )
         raise RuntimeError(f"Device authorization failed: {code_response.text}")
     device = code_response.json()
 
@@ -183,8 +187,10 @@ def authorize_limited_input_device(
         token_uri=TOKEN_URL,
         client_id=client_id,
         client_secret=client_secret,
-        scopes=token_data.get("scope", " ".join(AMBIENT_SCOPES)).split(),
-        expiry=datetime.now(timezone.utc)
+        scopes=token_data.get("scope", " ".join(PICKER_SCOPES)).split(),
+        # google-auth's Credentials.expired compares against naive UTC in some
+        # supported versions, so keep the stored expiry naive UTC as well.
+        expiry=datetime.now(timezone.utc).replace(tzinfo=None)
         + timedelta(seconds=float(token_data.get("expires_in", 3600))),
     )
 
@@ -275,11 +281,19 @@ class PhotosPicker:
             if not page_token:
                 return items
 
-    def download(self, item: dict[str, Any], output_dir: Path) -> Path:
+    def download(
+        self,
+        item: dict[str, Any],
+        output_dir: Path,
+        image_max_dimension: int = 720,
+    ) -> Path:
         media_file = item["mediaFile"]
         filename = Path(media_file.get("filename") or item["id"]).name
         destination = unique_path(output_dir / filename)
-        parameter = "=dv" if item.get("type") == "VIDEO" else "=d"
+        if item.get("type") == "VIDEO":
+            parameter = "=dv"
+        else:
+            parameter = f"=w{image_max_dimension}-h{image_max_dimension}"
 
         output_dir.mkdir(parents=True, exist_ok=True)
         with self._request(
@@ -293,70 +307,6 @@ class PhotosPicker:
     def delete_session(self, session_id: str) -> None:
         encoded_id = quote(session_id, safe="")
         self._request("DELETE", f"{API_ROOT}/sessions/{encoded_id}")
-
-
-class AmbientPhotos(PhotosPicker):
-    """Google Photos client for TVs, photo frames, and limited-input devices."""
-
-    def create_device(self, request_id: str) -> dict[str, Any]:
-        return self._request(
-            "POST",
-            f"{AMBIENT_API_ROOT}/devices",
-            params={"requestId": request_id},
-            json={"displayName": "ESP32-P4 Photo Frame"},
-        ).json()
-
-    def get_device(self, device_id: str) -> dict[str, Any]:
-        encoded_id = quote(device_id, safe="")
-        return self._request(
-            "GET", f"{AMBIENT_API_ROOT}/devices/{encoded_id}"
-        ).json()
-
-    def wait_for_media_sources(self, device: dict[str, Any]) -> dict[str, Any]:
-        while not device.get("mediaSourcesSet", False):
-            interval = duration_seconds(
-                device.get("pollingConfig", {}).get("pollInterval", ""), 5.0
-            )
-            time.sleep(interval)
-            device = self.get_device(device["id"])
-        return device
-
-    def list_ambient_items(
-        self, device_id: str, page_size: int = 100
-    ) -> list[dict[str, Any]]:
-        items: list[dict[str, Any]] = []
-        page_token: str | None = None
-        while True:
-            params: dict[str, Any] = {
-                "deviceId": device_id,
-                "pageSize": min(page_size, 100),
-            }
-            if page_token:
-                params["pageToken"] = page_token
-            page = self._request(
-                "GET", f"{AMBIENT_API_ROOT}/mediaItems", params=params
-            ).json()
-            items.extend(page.get("mediaItems", []))
-            page_token = page.get("nextPageToken")
-            # Ambient pagination may repeat indefinitely for the curated feed.
-            if not page_token or len(items) >= page_size:
-                return items[:page_size]
-
-    def download(self, item: dict[str, Any], output_dir: Path) -> Path:
-        media_file = item["mediaFile"]
-        mime_type = media_file.get("mimeType", "image/jpeg")
-        extension = {"image/png": ".png", "image/webp": ".webp"}.get(
-            mime_type, ".jpg"
-        )
-        destination = unique_path(output_dir / f"{item['id']}{extension}")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        with self._request(
-            "GET", media_file["baseUrl"] + "=d", stream=True
-        ) as response, destination.open("wb") as output:
-            for chunk in response.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    output.write(chunk)
-        return destination
 
 
 def unique_path(path: Path) -> Path:
@@ -391,12 +341,6 @@ def parse_args() -> argparse.Namespace:
         help="Location used to cache the user's OAuth token",
     )
     parser.add_argument(
-        "--device-file",
-        type=Path,
-        default=SCRIPT_DIR / "ambient_device.json",
-        help="Location used to remember the Google Ambient device ID",
-    )
-    parser.add_argument(
         "--output",
         type=Path,
         default=SCRIPT_DIR / "picked_photos",
@@ -408,9 +352,17 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Maximum number of selectable items (1-2000; default: 2000)",
     )
+    parser.add_argument(
+        "--image-max-dimension",
+        type=int,
+        default=720,
+        help="Maximum width and height for downloaded photos (default: 720 px)",
+    )
     args = parser.parse_args()
     if args.max_items is not None and not 1 <= args.max_items <= 2000:
         parser.error("--max-items must be between 1 and 2000")
+    if not 1 <= args.image_max_dimension <= 16383:
+        parser.error("--image-max-dimension must be between 1 and 16383")
     return args
 
 
@@ -429,39 +381,10 @@ def main() -> int:
         credentials, auth_flow = load_credentials(
             args.client_secrets, args.token_file, args.auth_flow, request_id
         )
-        if auth_flow == "device":
-            ambient = AmbientPhotos(credentials)
-            if args.device_file.exists():
-                saved_device = json.loads(args.device_file.read_text(encoding="utf-8"))
-                device = ambient.get_device(saved_device["id"])
-            else:
-                device = ambient.create_device(request_id or str(uuid.uuid4()))
-                args.device_file.parent.mkdir(parents=True, exist_ok=True)
-                args.device_file.write_text(
-                    json.dumps({"id": device["id"]}, indent=2), encoding="utf-8"
-                )
-
-            if not device.get("mediaSourcesSet", False):
-                settings_uri = device["settingsUri"]
-                print(f"Choose albums for this photo frame:\n{settings_uri}")
-                if not webbrowser.open(settings_uri):
-                    print("The browser did not open automatically; open the URL above.")
-                device = ambient.wait_for_media_sources(device)
-
-            page_size = args.max_items or 100
-            items = ambient.list_ambient_items(device["id"], page_size)
-            print(f"Downloading {len(items)} ambient item(s) to {args.output} ...")
-            for item in items:
-                saved = ambient.download(item, args.output)
-                print(f"  {saved}")
-            metadata_file = args.output / "selection.json"
-            args.output.mkdir(parents=True, exist_ok=True)
-            metadata_file.write_text(json.dumps(items, indent=2), encoding="utf-8")
-            print(f"Selection metadata: {metadata_file}")
-            return 0
-
         picker = PhotosPicker(credentials)
-        session = picker.create_session(args.max_items)
+        session = picker.create_session(
+            args.max_items, request_id if auth_flow == "device" else None
+        )
         picker_uri = session["pickerUri"]
         print(f"Choose photos in your browser:\n{picker_uri}")
         if not webbrowser.open(picker_uri):
@@ -471,7 +394,9 @@ def main() -> int:
         items = picker.list_media_items(completed["id"])
         print(f"Downloading {len(items)} selected item(s) to {args.output} ...")
         for item in items:
-            saved = picker.download(item, args.output)
+            saved = picker.download(
+                item, args.output, args.image_max_dimension
+            )
             print(f"  {saved}")
 
         metadata_file = args.output / "selection.json"

@@ -21,6 +21,16 @@ drivers and pin choices out of the application.
   reset wiring are target defaults
 - ESP BLE Provisioning Security 1; service name `RetroScope_XXXXXX`
 
+## Target architecture
+
+The firmware selects hardware through `RETROSCOPE_TARGET`. Shared dashboard,
+storage reporting, orientation logic, and ESP-Hosted C6 Wi-Fi/BLE provisioning
+stay in the application layer. Board display, SD card, I2C bus, accelerometer,
+and C6 power control belong to a target HAL. The BMI270 sensor-hub adapter is
+shared under `main/hardware/common` and can be reused by targets that provide
+an I2C bus. The two wish-list targets currently have compile-only stubs pending
+confirmed pin, display, memory, and peripheral details.
+
 The development proof-of-possession string is `myRetroScope`. Replace it with a
 per-device secret before production deployment.
 
@@ -57,11 +67,13 @@ app using the `RetroScope_XXXXXX` service name printed on the serial console.
 
 ## Google photo picker
 
-Use API method tested in photo_picker_test\photo_picker.py
+Keys can be tested using `photo_picker_test\photo_picker.py`
 
-Be a TV style device.
+Create a Google OAuth 2.0 Client ID. Choose a TV style device.
 
-Create a Google Cloud project, enable the Google Photos Library API, and create an OAuth 2.0 client ID for a desktop application. Download the `credentials.json` file and place it in the `photo_picker_test` directory.
+See: [Google Cloud Console](https://console.cloud.google.com/apis/credentials?project=linux-share)
+
+Create a Google Cloud project, enable the Google Photos Library API, and create an OAuth 2.0 client ID . Download the credentials file and place it in the `photo_picker_test\token.json` file.
 
 ## TODO
 

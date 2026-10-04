@@ -78,3 +78,8 @@ Desktop.ini
 *.sln.docstates # Visual Studio
 
 /photo_picker_test/token.json
+/photo_picker_test/token_*.json
+/photo_picker_test/client_secret*.json
+/photo_picker_test/picked_photos/**
+/photo_picker_test/picked_photos/token*.json
+
