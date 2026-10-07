@@ -208,8 +208,13 @@ extern "C" void app_main(void)
         ESP_LOGI(TAG, "SD card mounted at %s", hardware::sdcard_mount_point());
     }
 
-    // All supported targets use a C6-style ESP-Hosted radio coprocessor.
-    ESP_ERROR_CHECK(hardware::c6_radio_enable());
+    // Some boards gate C6 power through a BSP; on JC8012 the ESP-Hosted
+    // transport itself controls the coprocessor reset line.
+    err = hardware::c6_radio_enable();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "C6 radio enable failed: %s", esp_err_to_name(err));
+        return;
+    }
     ESP_ERROR_CHECK(static_cast<esp_err_t>(esp_hosted_init()));
     err = static_cast<esp_err_t>(esp_hosted_connect_to_slave());
     if (err != ESP_OK) {
@@ -233,9 +238,17 @@ extern "C" void app_main(void)
         ESP_LOGE(TAG, "C6 firmware is incompatible with ESP-Hosted 2.x; flash a matching 2.x slave image");
         return;
     }
-    ESP_ERROR_CHECK(esp_hosted_bt_controller_init());
-    ESP_ERROR_CHECK(esp_hosted_bt_controller_enable());
-    ESP_ERROR_CHECK(provisioning_start());
+    err = esp_hosted_bt_controller_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "C6 Bluetooth controller initialization failed: %s", esp_err_to_name(err));
+        if (err == ESP_ERR_NOT_SUPPORTED) {
+            ESP_LOGE(TAG, "C6 firmware does not support the Bluetooth controller RPC used by this host; "
+                         "flash an ESP-Hosted slave image matching the resolved host component version");
+        }
+        return;
+    }
+    ESP_RETURN_VOID_ON_ERROR(esp_hosted_bt_controller_enable(), TAG, "C6 Bluetooth controller enable failed");
+    ESP_RETURN_VOID_ON_ERROR(provisioning_start(), TAG, "Wi-Fi/BLE provisioning startup failed");
 
     ESP_LOGI(TAG, "%s photo frame hardware initialized", hardware::target_name());
 }

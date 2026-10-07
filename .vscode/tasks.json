@@ -245,6 +245,127 @@
                       "problemMatcher":  [
 
                                          ]
+                  },
+                  {
+                      "label":  "JC8012: Build",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-jc8012 -D RETROSCOPE_TARGET=jc8012p4a1c_i_w_y build; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "group":  "build",
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "JC8012: Set ESP32-P4 target and build",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-jc8012 -D RETROSCOPE_TARGET=jc8012p4a1c_i_w_y set-target esp32p4 build; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "JC8012: Clean",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-jc8012 -D RETROSCOPE_TARGET=jc8012p4a1c_i_w_y clean; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "JC8012: Full clean",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                    ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; $buildDir = [IO.Path]::GetFullPath((Join-Path (Get-Location) 'build-jc8012')); $workspaceDir = [IO.Path]::GetFullPath((Get-Location).Path); if (-not $buildDir.Equals((Join-Path $workspaceDir 'build-jc8012'), [StringComparison]::OrdinalIgnoreCase)) { Write-Error 'Refusing to clean unexpected path'; exit 1 }; if (Test-Path -LiteralPath (Join-Path $buildDir 'CMakeCache.txt')) { idf.py -B build-jc8012 -D RETROSCOPE_TARGET=jc8012p4a1c_i_w_y fullclean; exit $LASTEXITCODE }; if (Test-Path -LiteralPath $buildDir) { Remove-Item -LiteralPath $buildDir -Recurse -Force }; exit 0"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "JC8012: Flash",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-jc8012 -D RETROSCOPE_TARGET=jc8012p4a1c_i_w_y flash; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$gcc"
+                  },
+                  {
+                      "label":  "JC8012: Monitor",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-jc8012 -D RETROSCOPE_TARGET=jc8012p4a1c_i_w_y monitor; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
+                  },
+                  {
+                      "label":  "JC8012: Flash and monitor",
+                      "type":  "process",
+                      "command":  "powershell.exe",
+                      "args":  [
+                                   "-NoProfile",
+                                   "-ExecutionPolicy",
+                                   "Bypass",
+                                   "-Command",
+                                   ". \u0027C:\\Espressif\\tools\\Microsoft.v6.1.PowerShell_profile.ps1\u0027; if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) { exit 1 }; idf.py -B build-jc8012 -D RETROSCOPE_TARGET=jc8012p4a1c_i_w_y flash monitor; exit $LASTEXITCODE"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  [
+
+                                         ]
                   }
               ]
 }

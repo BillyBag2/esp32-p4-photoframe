@@ -68,14 +68,20 @@
       "cjson",
       "eppp",
       "espressif",
+      "ESPTOOLPY",
+      "FLASHFREQ",
+      "FLASHMODE",
+      "FLASHSIZE",
       "freetype",
       "fullclean",
+      "Guition's",
       "intf",
       "LEDC",
       "LIBJPEG",
       "LOGI",
       "LOGW",
       "LVGL",
+      "MALLOC",
       "MIPI",
       "NUMS",
       "photoframe",
@@ -87,7 +93,8 @@
       "SDIO",
       "sdkconfig",
       "SDMMC",
+      "SPIRAM",
       "STREQUAL"
     ],
-    "idf.port": "COM3"
+    "idf.port": "COM15"
 }

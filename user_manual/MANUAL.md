@@ -6,7 +6,7 @@
 |------------------------|-----------|
 | M5Stack Tab5           | WIP       |
 | ESP32-P4-Panel-ETH-2RO | Wish list |
-| JC8012P4A1C_I_W_Y      | Wish list |
+| JC8012P4A1C_I_W_Y      | WIP       |
 
 ## Navigation
 

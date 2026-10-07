@@ -18,6 +18,14 @@ else()
 endif()
 
 set(SDKCONFIG "${CMAKE_BINARY_DIR}/sdkconfig.${RETROSCOPE_TARGET}")
+# Use the same board selection for managed dependencies and source files.
+# This must be available before the component manager evaluates the manifest.
+set(ENV{RETROSCOPE_TARGET} "${RETROSCOPE_TARGET}")
+# Use the same board selection for managed dependencies and source files.
+# This must be available before the component manager evaluates the manifest.
+set(ENV{RETROSCOPE_TARGET} "${RETROSCOPE_TARGET}")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+# Export the board selection to IDF's separate component-requirements pass.
+idf_build_set_property(RETROSCOPE_TARGET "${RETROSCOPE_TARGET}")
 project(esp32_p4_photoframe)
